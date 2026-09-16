@@ -21,12 +21,19 @@ def main() -> int:
     query.add_argument("repository", type=Path)
     query.add_argument("text")
     query.add_argument("--limit", type=int, default=20)
+    serve = commands.add_parser("serve", help="Serve read-only queries over MCP stdio")
+    serve.add_argument("repository", type=Path)
     args = parser.parse_args()
     try:
         if args.command == "index":
             result = index_repository(args.repository)
-        else:
+        elif args.command == "query":
             result = query_repository(args.repository, args.text, args.limit)
+        else:
+            from agent_context.server import create_server
+
+            create_server(args.repository).run(transport="stdio")
+            return 0
     except (
         OSError,
         ValueError,

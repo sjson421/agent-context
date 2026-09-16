@@ -2,9 +2,10 @@
 
 Local code structure for AI coding agents. Index a Git working tree, persist its
 Python definitions in SQLite, and retrieve compact JSON without source dumps.
-Everything runs locally; no hosted services or runtime Python dependencies.
+Everything runs locally; no hosted services are required. The MCP transport uses
+the official Python MCP SDK.
 
-This is the first CLI vertical slice, **not yet the full MCP MVP**.
+This initial MVP supports Python definition search through the CLI and MCP.
 
 ## Install
 
@@ -41,6 +42,34 @@ an empty search lists the index. Results have deterministic path/line ordering.
 The default limit is 20, with a maximum of 100. Errors return exit code 1 and
 a JSON `error` on stderr.
 
+## MCP setup
+
+Index the repository first, then configure your MCP client to launch the stdio
+server. A typical client configuration is:
+
+```json
+{
+  "mcpServers": {
+    "agent-context": {
+      "command": "/absolute/path/to/.venv/bin/agent-context",
+      "args": ["serve", "/absolute/path/to/repository"]
+    }
+  }
+}
+```
+
+Use absolute paths so configuration does not depend on the client's working
+directory. The client starts and stops the process; there is no listening network
+port. Standard output is reserved for MCP messages and diagnostics use stderr.
+
+The read-only `query_code` tool accepts `text` and an optional integer `limit`
+(1–100, default 20). For example, `{"text": "Auth.login", "limit": 10}` returns
+the same `results` and `truncated` fields as the CLI, both as MCP structured content
+and JSON text for older clients. Each server is bound to its configured repository;
+tool calls cannot choose a different repository or write an index. Missing indexes
+and invalid arguments produce tool errors. Run `agent-context index` again after
+source edits; the running server reads the latest successful snapshot on each call.
+
 ## Index semantics and limits
 
 - Reads the current working-tree versions of tracked and nonignored untracked
@@ -57,7 +86,7 @@ a JSON `error` on stderr.
   the last writer wins. Source reads are not a filesystem snapshot: avoid
   modifying the working tree during indexing.
 - No imports, calls, references, inheritance, semantic search, other languages,
-  incremental updates, or MCP transport yet. Definition ownership is lexical,
+  or incremental updates yet. Definition ownership is lexical,
   not a claim about runtime dispatch. IDs are stable across unchanged indexing,
   but can change when line numbers or names change.
 - Full parsing happens in memory before writing. Large-repository performance
@@ -73,7 +102,10 @@ python -m unittest discover -s tests -v
 
 Tests exercise the CLI in separate processes against temporary Git repositories,
 including index replacement, persisted query results, nested ownership, source
-encodings, Git ignore rules, symlinks, limits, and failure rollback.
+encodings, Git ignore rules, symlinks, limits, and failure rollback. An MCP client
+integration test exercises stdio initialization, tool discovery, structured results,
+validation, missing indexes, and reindexing during an active session.
 
-The next vertical slice is MCP access to the existing structured query. Richer
-relationships and language support can follow without duplicating graph storage.
+Next steps include reliable import relationships, additional languages, incremental
+indexing, and retrieval evaluations. MCP and CLI share the same query and storage
+implementation.
