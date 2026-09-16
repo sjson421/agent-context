@@ -1,0 +1,2 @@
+[console_scripts]
+agent-context = agent_context.cli:main
